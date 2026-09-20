@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: {{width}}px;
+    height: {{height}}px;
+    overflow: hidden;
+    background: #f8fafc;
+    font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #container {
+    width: {{width}}px;
+    height: {{height}}px;
+    position: relative;
+    overflow: hidden;
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 45%),
+      radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.08) 0px, transparent 45%),
+      radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
+      radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px;
+    padding: 26px 30px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* 顶部 Header */
+  .header {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 20px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .header-avatar {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 3px solid #f59e0b;
+    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.3);
+    background: #e2e8f0;
+    object-fit: cover;
+  }
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+  }
+  .title-tag {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 8px;
+    background: #fef3c7;
+    color: #b45309;
+  }
+  .subtitle {
+    font-size: 13.5px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* 5项核心指标卡片 */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .stat-card {
+    background: rgba(248, 250, 252, 0.85);
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  /* 中部图谱卡片 (正方形充满) */
+  .graph-card {
+    width: 1020px;
+    height: 1020px;
+    position: relative;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 24px;
+    box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+  .graph-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 图例浮动栏 */
+  .graph-legend {
+    position: absolute;
+    left: 20px;
+    bottom: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 12px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    font-size: 12px;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    pointer-events: none;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-line {
+    width: 16px;
+    height: 0;
+    border-top: 2.5px solid;
+    border-radius: 2px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* 下部看板 (2x2 网格) */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .dash-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 18px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #e2e8f0;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-badge {
+    font-size: 11.5px;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-weight: 600;
+  }
+
+  /* 榜单列表 */
+  .rank-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .rank-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3.5px 8px;
+    border-radius: 8px;
+    background: rgba(248, 250, 252, 0.75);
+  }
+  .rank-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .rank-idx {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #64748b;
+    background: #e2e8f0;
+    flex-shrink: 0;
+  }
+  .rank-idx.gold { background: #fef3c7; color: #b45309; }
+  .rank-idx.silver { background: #f1f5f9; color: #475569; }
+  .rank-idx.bronze { background: #ffedd5; color: #c2410c; }
+
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #e2e8f0;
+  }
+  .user-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 230px;
+  }
+  .rank-val {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* 默契搭档 2x2 */
+  .cp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .cp-item {
+    background: rgba(248, 250, 252, 0.85);
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cp-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cp-name {
+    font-size: 13px;
+    color: #1e293b;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cp-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #64748b;
+  }
+  .cp-badge {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #e11d48;
+    background: #ffe4e6;
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+
+  /* 社交圈构成 */
+  .comm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .comm-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(248, 250, 252, 0.75);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+  .comm-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .comm-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .comm-names {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 320px;
+  }
+  .comm-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    background: #e2e8f0;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* 页脚 */
+  .footer {
+    text-align: right;
+    font-size: 11.5px;
+    color: #94a3b8;
+    padding-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <!-- 顶部 Header 卡片 -->
+  <div class="header">
+    <div class="header-top">
+      <div class="user-info">
+        <img class="header-avatar" src="{{target.avatar}}" onerror="this.src=''"/>
+        <div class="header-text">
+          <div class="title-row">
+            <div class="title">{{target.name}} · 个人艾特社交图谱</div>
+            <span class="title-tag">{{target.style}}</span>
+          </div>
+          <div class="subtitle">{{subtitle}}</div>
+        </div>
+      </div>
+    </div>
+    <!-- 5项核心指标 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">关联好友</span>
+        <span class="stat-val">{{target.friendCount}} 人</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">主动发起</span>
+        <span class="stat-val" style="color: #2563eb;">{{target.out}} 次</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">收到艾特</span>
+        <span class="stat-val" style="color: #059669;">{{target.in}} 次</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">双向好友</span>
+        <span class="stat-val" style="color: #e11d48;">{{target.mutualCount}} 人</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">总互动频次</span>
+        <span class="stat-val" style="color: #d97706;">{{target.total}} 次</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中部：正方形高空间利用率的星系图谱 -->
+  <div class="graph-card">
+    <svg class="graph-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 1020">
+      <defs>
+        <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.14"/>
+        </filter>
+        <filter id="center-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#f59e0b" flood-opacity="0.55"/>
+        </filter>
+        <filter id="pill-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.09"/>
+        </filter>
+        {{each nodes n}}
+        {{if n.isTop}}
+        <clipPath id="clip-p-{{n.id}}">
+          <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}"/>
+        </clipPath>
+        {{/if}}
+        {{/each}}
+      </defs>
+
+      <!-- 同心圆圈层背景标尺 -->
+      <g class="rings" opacity="0.7">
+        <circle cx="{{nodes[0].x}}" cy="{{nodes[0].y}}" r="185" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="5 7"/>
+        <text x="{{nodes[0].x}}" y="{{nodes[0].y - 192}}" text-anchor="middle" font-size="12" fill="#94a3b8" font-weight="700">核心互动圈</text>
+
+        <circle cx="{{nodes[0].x}}" cy="{{nodes[0].y}}" r="310" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="5 7"/>
+        <text x="{{nodes[0].x}}" y="{{nodes[0].y - 317}}" text-anchor="middle" font-size="12" fill="#94a3b8" font-weight="700">频繁互动圈</text>
+
+        <circle cx="{{nodes[0].x}}" cy="{{nodes[0].y}}" r="440" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="5 7"/>
+        <text x="{{nodes[0].x}}" y="{{nodes[0].y - 447}}" text-anchor="middle" font-size="12" fill="#94a3b8" font-weight="700">泛交圈</text>
+      </g>
+
+      <!-- 连线层 -->
+      <g class="edges">
+        {{each edges e}}
+        <path d="{{e.d}}" fill="none" stroke="{{e.color}}" stroke-width="{{e.w}}" stroke-opacity="{{e.o}}" stroke-linecap="round"/>
+        {{/each}}
+      </g>
+
+      <!-- 箭头层 -->
+      <g class="arrows">
+        {{each arrows a}}
+        <polygon points="{{a.points}}" fill="{{a.color}}" opacity="{{a.o}}"/>
+        {{/each}}
+      </g>
+
+      <!-- 节点层 -->
+      <g class="nodes">
+        {{each nodes n}}
+        {{if n.isCenter}}
+        <!-- 中心主角：特大发光光环与 QQ 头像 -->
+        <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r + 7}}" fill="none" stroke="#f59e0b" stroke-width="4.5" opacity="0.95" filter="url(#center-glow)"/>
+        <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r + 1.5}}" fill="#ffffff"/>
+        <image href="{{n.avatar}}" x="{{n.x - n.r}}" y="{{n.y - n.r}}" width="{{n.r * 2}}" height="{{n.r * 2}}" clip-path="url(#clip-p-{{n.id}})" preserveAspectRatio="xMidYMid slice"/>
+        {{else if n.isTop}}
+        <!-- 重点好友：带社区光环与 QQ 头像 -->
+        <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r + 4}}" fill="none" stroke="{{n.color}}" stroke-width="3" opacity="0.9" filter="url(#node-shadow)"/>
+        <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r + 0.8}}" fill="#ffffff"/>
+        <image href="{{n.avatar}}" x="{{n.x - n.r}}" y="{{n.y - n.r}}" width="{{n.r * 2}}" height="{{n.r * 2}}" clip-path="url(#clip-p-{{n.id}})" preserveAspectRatio="xMidYMid slice"/>
+        {{else}}
+        <!-- 普通关联好友：社区色圆点 -->
+        <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.color}}" stroke="#ffffff" stroke-width="2" opacity="0.9" filter="url(#node-shadow)"/>
+        {{/if}}
+        {{/each}}
+      </g>
+
+      <!-- 标签胶囊层 (字号显著加大) -->
+      <g class="labels">
+        {{each nodes n}}
+        {{if n.showLabel}}
+        <rect x="{{n.lx - n.lw / 2}}" y="{{n.ly - n.lh / 2}}" width="{{n.lw}}" height="{{n.lh}}" rx="{{n.lh / 2}}" ry="{{n.lh / 2}}" fill="rgba(255, 255, 255, 0.96)" stroke="{{n.color}}" stroke-width="{{if n.isCenter}}2.2{{else}}1.4{{/if}}" filter="url(#pill-shadow)"/>
+        <text x="{{n.lx}}" y="{{n.ly + 5}}" text-anchor="middle" font-size="{{n.fs}}" font-weight="{{if n.isCenter}}800{{else}}700{{/if}}" fill="{{if n.isCenter}}#b45309{{else}}#0f172a{{/if}}">{{n.label}}</text>
+        {{/if}}
+        {{/each}}
+      </g>
+    </svg>
+
+    <!-- 图例浮动栏 -->
+    <div class="graph-legend">
+      <div class="legend-item">
+        <span class="legend-line" style="border-color: #e11d48; border-top-width: 3px;"></span>
+        <span>双向奔赴（深度互 @）</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="border-color: #2563eb;"></span>
+        <span>TA主动 @ 对方</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="border-color: #059669;"></span>
+        <span>对方 @ TA</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="border-color: #cbd5e1; border-top-width: 1.5px;"></span>
+        <span>好友彼此间关联</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下部：个人社交情报看板 (2x2 网格) -->
+  <div class="dashboard-grid">
+    <!-- 卡片1: TA最关注的人 -->
+    <div class="dash-card">
+      <div class="card-header">
+        <div class="card-title">🎯 TA最关注的人</div>
+        <div class="card-badge">TA主动 @ 最多</div>
+      </div>
+      <div class="rank-list">
+        {{each topFocus item idx}}
+        <div class="rank-row">
+          <div class="rank-left">
+            <div class="rank-idx {{if idx == 0}}gold{{else if idx == 1}}silver{{else if idx == 2}}bronze{{/if}}">{{item.rank}}</div>
+            <img class="user-avatar" src="{{item.avatar}}" onerror="this.style.display='none'"/>
+            <div class="user-name">{{item.name}}</div>
+          </div>
+          <div class="rank-val">{{item.count}} 次主动@</div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- 卡片2: TA的头号粉丝 -->
+    <div class="dash-card">
+      <div class="card-header">
+        <div class="card-title">👑 TA的头号粉丝</div>
+        <div class="card-badge">最常 @ TA的人</div>
+      </div>
+      <div class="rank-list">
+        {{each topFans item idx}}
+        <div class="rank-row">
+          <div class="rank-left">
+            <div class="rank-idx {{if idx == 0}}gold{{else if idx == 1}}silver{{else if idx == 2}}bronze{{/if}}">{{item.rank}}</div>
+            <img class="user-avatar" src="{{item.avatar}}" onerror="this.style.display='none'"/>
+            <div class="user-name">{{item.name}}</div>
+          </div>
+          <div class="rank-val" style="color: #059669; background: #ecfdf5;">被@ {{item.count}} 次</div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- 卡片3: 核心密友 / 默契搭档 -->
+    <div class="dash-card">
+      <div class="card-header">
+        <div class="card-title">🤝 核心密友 / 默契搭档</div>
+        <div class="card-badge">双向奔赴</div>
+      </div>
+      <div class="cp-grid">
+        {{each topBestFriends item}}
+        <div class="cp-item">
+          <div class="cp-top">
+            <img class="user-avatar" src="{{item.avatar}}" onerror="this.style.display='none'"/>
+            <div class="cp-name">{{item.name}}</div>
+          </div>
+          <div class="cp-details">
+            <span>主动 {{item.out}} · 收到 {{item.in}}</span>
+            <span class="cp-badge">{{item.total}} 次互@</span>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- 卡片4: 社交圈构成 -->
+    <div class="dash-card">
+      <div class="card-header">
+        <div class="card-title">🪐 社交圈构成</div>
+        <div class="card-badge">好友圈子分布</div>
+      </div>
+      <div class="comm-list">
+        {{each topCommDist item}}
+        <div class="comm-item">
+          <div class="comm-left">
+            <div class="comm-dot" style="background: {{item.color}};"></div>
+            <div class="comm-names">{{item.names}} 等</div>
+          </div>
+          <div class="comm-count">{{item.count}} 位 ({{item.percent}}%)</div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Created by Meilisearch message stats · 个人艾特关系图谱</div>
+</div>
+</body>
+</html>

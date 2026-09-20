@@ -1,0 +1,30 @@
+{
+  "name": "chronicle-plugin",
+  "version": "1.0.0",
+  "description": "基于 Meilisearch 的云崽群聊编年史、消息索引、全文搜索、数据可视化与 AI 画像标准插件",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "file-type": "^19.0.0",
+    "lodash": "^4.17.21",
+    "meilisearch": "^0.40.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.56.0",
+    "yaml": "^2.4.5"
+  },
+  "keywords": [
+    "yunzai",
+    "yunzai-bot",
+    "meilisearch",
+    "miao-yunzai",
+    "search",
+    "wordcloud",
+    "atgraph"
+  ],
+  "author": "ikechan8370",
+  "license": "MIT"
+}

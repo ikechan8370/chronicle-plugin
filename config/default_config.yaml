@@ -1,0 +1,90 @@
+# Meilisearch 服务配置
+meilisearch:
+  # 是否启用内置 Meilisearch 二进制服务
+  # true: 插件启动时会自动检测、下载（如不存在）并运行内置二进制（开箱即用，无需配置外部服务）
+  # false: 连接外部独立部署的 Meilisearch 实例
+  embedded: true
+
+  # 内置二进制文件路径。留空则自动在插件 bin/ 目录下查找 meilisearch (Linux/macOS) 或 meilisearch.exe (Windows)
+  binPath: ""
+
+  # 当内置二进制不存在时，是否自动从 GitHub Releases 下载预编译可执行文件
+  autoDownload: true
+
+  # GitHub Releases 下载加速镜像前缀（例如 https://mirror.ghproxy.com/ 或留空直接连接 GitHub）
+  downloadProxy: "https://mirror.ghproxy.com/"
+
+  # Meilisearch 监听/连接的主机地址
+  host: "127.0.0.1"
+
+  # Meilisearch 监听/连接的端口
+  port: 7700
+
+  # API 密钥 / Master Key。若留空，插件在首次启动内置服务时将自动生成随机安全密钥并持久化
+  apiKey: ""
+
+  # 数据文件存储路径（相对于云崽根目录）
+  dbPath: "./data/meilisearch/data.ms"
+
+  # 默认消息索引名称
+  indexName: "messages"
+
+# 视觉大模型 (Vision AI) 与对话大模型配置
+ai:
+  # 视觉模型 (用于群聊新图片自动识别、生成 tags 与文字描述，支持自然语言搜图)
+  # 若未配置 API Key，将仅入库图片而不调用视觉识别
+  vision:
+    provider: "openai"
+    baseUrl: "https://api.openai.com/v1"
+    apiKey: ""
+    model: "gpt-4o-mini"
+    supportsResponseFormat: false
+    maxRetry: 3
+
+  # 文本大模型 (用于 #学舌、#画像、#群画像 等功能)
+  chat:
+    # 默认使用的服务商: 'openai' 或 'gemini'
+    provider: "openai"
+
+    # OpenAI / DeepSeek / 聚合 API 配置
+    openai:
+      baseUrl: "https://api.openai.com/v1"
+      apiKey: ""
+      model: "gpt-4o-mini"
+      maxTokens: 4096
+
+    # Google Gemini 配置
+    gemini:
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta"
+      apiKey: ""
+      repeatModel: "gemini-2.0-flash"
+      descModel: "gemini-2.0-flash"
+
+# 词云与分页参数
+wordcloud:
+  # 历史词云最大扫描消息数
+  historyLimit: 50000
+  # 今日词云最大扫描消息数
+  todayLimit: 5000
+  # 单次查询最大上限
+  maxLimit: 500000
+  # 历史词云展示词数
+  historyWords: 130
+  # 今日词云展示词数
+  todayWords: 100
+
+# 内置可视化管理面板 (Dashboard) 配置
+dashboard:
+  # 是否启用内置管理面板（支持后台浏览和检索索引数据、预览图片和 AI 标注）
+  enable: true
+  # 监听地址（0.0.0.0 允许外部通过 IP 访问，127.0.0.1 仅限本机访问）
+  host: "0.0.0.0"
+  # 面板监听端口
+  port: 7701
+  # 访问认证密钥（留空则默认复用 meilisearch.apiKey）
+  authKey: ""
+
+# 存储路径
+storage:
+  # 接收并缓存的多媒体（图片/文件）存放路径（相对于云崽根目录）
+  receivedDir: "./data/chatgpt/data/received"
