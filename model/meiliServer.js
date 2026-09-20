@@ -180,6 +180,9 @@ class MeiliServer {
     const dbPath = path.resolve(process.cwd(), cfg.dbPath || './data/meilisearch/data.ms')
     fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
+    const maxIndexingMemory = cfg.maxIndexingMemory || '256MiB'
+    const maxIndexingThreads = cfg.maxIndexingThreads || 1
+
     const args = [
       '--db-path', dbPath,
       '--http-addr', `${cfg.host}:${cfg.port}`,
@@ -187,10 +190,28 @@ class MeiliServer {
       '--no-analytics'
     ]
 
-    log.info(`[${PLUGIN_NAME}] 正在启动内置 Meilisearch 服务...`)
+    // 针对 1G-4G 低配小服务器优化：限制索引内存与并发线程数，防止默认占用 2/3 系统内存导致 OOM
+    if (maxIndexingMemory && maxIndexingMemory !== 'unlimited') {
+      args.push('--max-indexing-memory', String(maxIndexingMemory))
+    }
+    if (maxIndexingThreads) {
+      args.push('--max-indexing-threads', String(maxIndexingThreads))
+    }
+    if (cfg.reduceIndexingMemory !== false) {
+      args.push('--experimental-reduce-indexing-memory-usage')
+    }
+
+    log.info(`[${PLUGIN_NAME}] 正在启动内置 Meilisearch 服务 (内存限制: ${maxIndexingMemory}, 索引线程: ${maxIndexingThreads})...`)
     this.child = spawn(binPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true
+      windowsHide: true,
+      env: {
+        ...process.env,
+        MEILI_NO_ANALYTICS: 'true',
+        MEILI_MAX_INDEXING_MEMORY: String(maxIndexingMemory),
+        MEILI_MAX_INDEXING_THREADS: String(maxIndexingThreads),
+        MEILI_EXPERIMENTAL_REDUCE_INDEXING_MEMORY_USAGE: 'true'
+      }
     })
 
     this.child.stdout.on('data', data => {

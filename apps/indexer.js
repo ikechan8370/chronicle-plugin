@@ -123,8 +123,19 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
   const log = global.logger || console
   let hasImageUpdates = false
 
+  const storageCfg = Config.getConfig().storage || {}
+  const saveImage = storageCfg.saveImage ?? true
+  const saveVideo = storageCfg.saveVideo ?? false
+  const saveFile = storageCfg.saveFile ?? false
+  const maxFileSizeMB = storageCfg.maxFileSizeMB || 50
+  const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024
+
   for (const item of formattedMessage) {
     if (item.type === 'image') {
+      if (!saveImage) {
+        log.debug?.(`[chronicle-plugin] 配置为不保存群聊图片，跳过本地存储: ${item.file || item.url || ''}`)
+        continue
+      }
       try {
         let imageUrl = item.url || ''
         if (!imageUrl && Array.isArray(e.img) && e.img.length > 0) {
@@ -242,8 +253,39 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
       } catch (error) {
         log.error(`[chronicle-plugin] 后台处理图片异常:`, error)
       }
-    } else if (item.type === 'file') {
+    } else if (item.type === 'video') {
+      if (!saveVideo) {
+        log.debug?.(`[chronicle-plugin] 配置为不保存群聊视频，跳过下载: ${item.name || item.file || ''}`)
+        continue
+      }
       try {
+        let videoUrl = item.url || (typeof item.file === 'string' && /^https?:\/\//i.test(item.file) ? item.file : '')
+        if (!videoUrl && e.video?.url) {
+          videoUrl = e.video.url
+        }
+        const videoName = item.name || (item.fid ? `${item.fid}.mp4` : (item.file && item.file.endsWith('.mp4') ? item.file : ''))
+        const safeVideoName = videoName || `${crypto.createHash('md5').update(videoUrl || Math.random().toString()).digest('hex')}.mp4`
+
+        if (videoUrl) {
+          log.info(`[chronicle-plugin] 🎬 正在后台下载群聊视频: ${safeVideoName}`)
+          await downloadFile(videoUrl, safeVideoName, false, true, null, 60000)
+          log.info(`[chronicle-plugin] 🎬 视频下载完成: ${safeVideoName}`)
+        }
+      } catch (err) {
+        log.error(`[chronicle-plugin] 下载视频异常:`, err)
+      }
+    } else if (item.type === 'file') {
+      if (!saveFile) {
+        log.debug?.(`[chronicle-plugin] 配置为不保存群文件，跳过下载: ${item.name || item.fid || ''}`)
+        continue
+      }
+      try {
+        // 检查文件大小限制
+        if (item.size && item.size > maxFileSizeBytes) {
+          log.warn(`[chronicle-plugin] ⚠️ 群文件 [${item.name}] 大小 (${(item.size / 1024 / 1024).toFixed(1)}MB) 超过限制 (${maxFileSizeMB}MB)，跳过下载`)
+          continue
+        }
+
         let fileUrl = item.url
         if (!fileUrl && e.group?.getFileUrl && item.fid) {
           fileUrl = await e.group.getFileUrl(item.fid)
@@ -251,7 +293,8 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
           fileUrl = await e.friend.getFileUrl(item.fid)
         }
         if (fileUrl && item.name) {
-          await downloadFile(fileUrl, item.name, false, true, null, 30000)
+          log.info(`[chronicle-plugin] 📁 正在后台下载群文件: ${item.name}`)
+          await downloadFile(fileUrl, item.name, false, true, null, 60000)
           log.info(`[chronicle-plugin] 📁 文件下载完成: ${item.name}`)
         }
       } catch (err) {

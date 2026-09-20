@@ -74,6 +74,10 @@ meilisearch:
   # 数据文件保存路径
   dbPath: "./data/meilisearch/data.ms"
   indexName: "messages"
+  # 内存限制与低配机器调优（专为 1G-4G 内存 VPS 优化，默认 256MiB，防止默认占用 2/3 系统内存导致 OOM）
+  maxIndexingMemory: "256MiB"
+  # 最大索引并发线程数（默认 1，低配机器建议保持 1，避免多核并发导致瞬时内存暴涨）
+  maxIndexingThreads: 1
 
 # 内置管理面板 WebUI
 dashboard:
@@ -116,9 +120,17 @@ wordcloud:
   historyWords: 130
   todayWords: 100
 
-# 文件存储路径
+# 存储与多媒体持久化配置
 storage:
   receivedDir: "./data/chronicle/received"
+  # 是否保存群聊图片到本地（true: 保存并支持 Vision AI 打标与本地检索预览；false: 仅保留消息元数据）
+  saveImage: true
+  # 是否保存群聊视频到本地（默认 false，防止视频过大导致磁盘迅速爆满）
+  saveVideo: false
+  # 是否保存群文件到本地（默认 false，防止群文件挤爆硬盘）
+  saveFile: false
+  # 单个多媒体文件最大下载大小限制（单位: MB，默认 50MB，超过则跳过本地下载）
+  maxFileSizeMB: 50
 ```
 
 ---

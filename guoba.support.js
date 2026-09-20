@@ -82,6 +82,32 @@ export function supportGuoba () {
           },
           required: true
         },
+        {
+          field: 'meilisearch.maxIndexingMemory',
+          label: '最大索引内存限制 (低配调优)',
+          bottomHelpMessage: '专为 1G-4G 内存 VPS 调优，防止默认占用 2/3 系统内存导致 OOM。推荐 256MiB',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '128MiB (极致省内存，适合 1G-2G VPS)', value: '128MiB' },
+              { label: '256MiB (推荐，适合 2G-4G 服务器)', value: '256MiB' },
+              { label: '512MiB (适合 4G-8G 服务器)', value: '512MiB' },
+              { label: '1GiB (适合 8G+ 内存服务器)', value: '1GiB' },
+              { label: '不限制 (系统物理内存的 2/3)', value: 'unlimited' }
+            ]
+          }
+        },
+        {
+          field: 'meilisearch.maxIndexingThreads',
+          label: '最大索引并发线程数',
+          bottomHelpMessage: '默认 1。低配服务器建议保持 1，防止多核并发导致瞬时内存激增',
+          component: 'InputNumber',
+          componentProps: {
+            min: 1,
+            max: 16,
+            placeholder: 1
+          }
+        },
 
         {
           component: 'Divider',
@@ -237,6 +263,35 @@ export function supportGuoba () {
           component: 'Input',
           componentProps: {
             placeholder: './data/chronicle/received'
+          }
+        },
+        {
+          field: 'storage.saveImage',
+          label: '保存群聊图片到本地',
+          bottomHelpMessage: '开启后下载群聊图片到本地，支持 Vision AI 打标与面板预览。默认开启',
+          component: 'Switch'
+        },
+        {
+          field: 'storage.saveVideo',
+          label: '保存群聊视频到本地',
+          bottomHelpMessage: '默认关闭。视频体积较大，开启后可能迅速占满磁盘空间',
+          component: 'Switch'
+        },
+        {
+          field: 'storage.saveFile',
+          label: '保存群文件到本地',
+          bottomHelpMessage: '默认关闭。群文件体积较大，开启后容易挤爆服务器硬盘',
+          component: 'Switch'
+        },
+        {
+          field: 'storage.maxFileSizeMB',
+          label: '单个多媒体下载上限 (MB)',
+          bottomHelpMessage: '超过该大小的文件或视频将跳过本地下载，默认 50MB',
+          component: 'InputNumber',
+          componentProps: {
+            min: 1,
+            max: 2048,
+            placeholder: 50
           }
         }
       ],

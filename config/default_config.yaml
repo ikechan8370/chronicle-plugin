@@ -29,6 +29,16 @@ meilisearch:
   # 默认消息索引名称
   indexName: "messages"
 
+  # 内存限制与低配服务器调优（专为 1G-4G 内存 VPS 优化）
+  # 最大索引内存限制（例如 "256MiB", "512MiB", "1GiB"），默认 "256MiB"，防止默认占用 2/3 系统内存导致 OOM
+  maxIndexingMemory: "256MiB"
+
+  # 最大索引并发线程数（默认 1，低配机器建议设为 1，防止多核并发导致瞬时内存激增）
+  maxIndexingThreads: 1
+
+  # 是否启用降低索引内存占用的实验性优化（默认 true）
+  reduceIndexingMemory: true
+
 # 视觉大模型 (Vision AI) 与对话大模型配置
 ai:
   # 视觉模型 (用于群聊新图片自动识别、生成 tags 与文字描述，支持自然语言搜图)
@@ -84,8 +94,21 @@ dashboard:
   # 访问认证密钥（留空则默认复用 meilisearch.apiKey）
   authKey: ""
 
-# 存储路径
+# 存储与多媒体持久化配置
 storage:
   # 接收并缓存的多媒体（图片/文件）存放路径（相对于云崽根目录）
   receivedDir: "./data/chronicle/received"
+
+  # 是否保存群聊图片到本地磁盘（true: 保存并支持 Vision AI 打标与本地检索预览；false: 仅保留消息元数据）
+  saveImage: true
+
+  # 是否保存群聊视频到本地磁盘（默认 false，防止视频过大导致磁盘迅速爆满）
+  saveVideo: false
+
+  # 是否保存群文件到本地磁盘（默认 false，防止群文件挤爆硬盘）
+  saveFile: false
+
+  # 单个多媒体文件最大下载大小限制（单位: MB，默认 50MB，超过则跳过本地下载）
+  maxFileSizeMB: 50
+
 
