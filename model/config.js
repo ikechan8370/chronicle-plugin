@@ -122,6 +122,60 @@ class Config {
       return false
     }
   }
+
+  /**
+   * 判断指定群聊是否启用了消息索引/功能
+   * @param {string|number} groupId 群号
+   * @returns {boolean}
+   */
+  isGroupEnabled (groupId) {
+    groupId = String(groupId || '')
+    if (!groupId || groupId === '0') return false
+
+    const groupCfg = this.get('groups', {})
+    const rules = groupCfg.rules || {}
+
+    // 1. 若在 rules 中明确指定了该群的 enabled 状态，优先级最高
+    if (rules[groupId] && typeof rules[groupId].enabled === 'boolean') {
+      return rules[groupId].enabled
+    }
+
+    const mode = groupCfg.mode || 'all'
+    const whitelist = (groupCfg.whitelist || []).map(String)
+    const blacklist = (groupCfg.blacklist || []).map(String)
+
+    // 2. 黑名单判定
+    if (blacklist.includes(groupId)) {
+      return false
+    }
+
+    // 3. 白名单模式判定
+    if (mode === 'whitelist') {
+      return whitelist.includes(groupId)
+    }
+
+    // 4. 'all' 或 'blacklist' 模式下默认开启
+    return true
+  }
+
+  /**
+   * 获取指定群的多媒体存储策略
+   * @param {string|number} groupId 群号
+   * @returns {{ saveImage: boolean, saveVideo: boolean, saveFile: boolean, vision: boolean, maxFileSizeMB: number }}
+   */
+  getGroupMediaRule (groupId) {
+    groupId = String(groupId || '')
+    const storageCfg = this.get('storage', {})
+    const groupRule = this.get(`groups.rules.${groupId}`, {})
+
+    return {
+      saveImage: groupRule.saveImage ?? storageCfg.saveImage ?? true,
+      saveVideo: groupRule.saveVideo ?? storageCfg.saveVideo ?? false,
+      saveFile: groupRule.saveFile ?? storageCfg.saveFile ?? false,
+      vision: groupRule.vision ?? true,
+      maxFileSizeMB: groupRule.maxFileSizeMB ?? storageCfg.maxFileSizeMB ?? 50
+    }
+  }
 }
 
 export default new Config()

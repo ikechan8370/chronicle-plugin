@@ -58,6 +58,17 @@ async function handleMessage (e) {
     const groupId = isGroup ? String(e.group_id || e.group?.group_id || '0') : '0'
     const groupName = e.group_name || e.group?.name || e.group?.group_name || e.bot?.gl?.get(e.group_id)?.group_name || (isGroup ? groupId : '')
 
+    // 分群策略过滤：检查当前群或私聊是否启用消息索引
+    if (!isGroup) {
+      if (!Config.get('groups.indexPrivate', false)) {
+        return
+      }
+    } else {
+      if (!Config.isGroupEnabled(groupId)) {
+        return
+      }
+    }
+
     // 格式化消息分段（解析 at 昵称，标准化多媒体引用）
     const formattedMessage = []
     for (const rawItem of e.message) {
@@ -107,7 +118,7 @@ async function handleMessage (e) {
 
     // 🚀 2. 异步处理多媒体资源（下载图片、群文件、调用视觉大模型打标）
     // 后台独立执行，绝不阻塞任何后续群聊消息！
-    processMediaAsync(e, messageData, formattedMessage, fullReceivedDir, groupName, senderNick, userId).catch(err => {
+    processMediaAsync(e, messageData, formattedMessage, fullReceivedDir, groupName, senderNick, userId, groupId).catch(err => {
       log.error(`[chronicle-plugin] 后台处理媒体资源异常:`, err)
     })
   } catch (err) {
@@ -119,21 +130,18 @@ async function handleMessage (e) {
 /**
  * 后台异步处理媒体资源与视觉大模型打标，完成后回写更新 Meilisearch 索引
  */
-async function processMediaAsync (e, messageData, formattedMessage, fullReceivedDir, groupName, senderNick, userId) {
+async function processMediaAsync (e, messageData, formattedMessage, fullReceivedDir, groupName, senderNick, userId, groupId) {
   const log = global.logger || console
   let hasImageUpdates = false
 
-  const storageCfg = Config.getConfig().storage || {}
-  const saveImage = storageCfg.saveImage ?? true
-  const saveVideo = storageCfg.saveVideo ?? false
-  const saveFile = storageCfg.saveFile ?? false
-  const maxFileSizeMB = storageCfg.maxFileSizeMB || 50
+  // 获取针对当前群的多媒体策略（支持全局默认与特定群个性化覆盖）
+  const { saveImage, saveVideo, saveFile, vision, maxFileSizeMB } = Config.getGroupMediaRule(groupId)
   const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024
 
   for (const item of formattedMessage) {
     if (item.type === 'image') {
       if (!saveImage) {
-        log.debug?.(`[chronicle-plugin] 配置为不保存群聊图片，跳过本地存储: ${item.file || item.url || ''}`)
+        log.debug?.(`[chronicle-plugin] [群 ${groupId || '私聊'}] 配置为不保存群聊图片，跳过本地存储: ${item.file || item.url || ''}`)
         continue
       }
       try {
@@ -229,10 +237,12 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
           item.tags = existSameImage.tags || existSameImage.tag || []
           hasImageUpdates = true
         } else {
-          // 3. 检查是否配置了 Vision AI 的 API Key
+          // 3. 检查是否配置了 Vision AI 的 API Key 以及当前群是否启用了视觉打标
           const visionApiKey = Config.get('ai.vision.apiKey', '')
           if (!visionApiKey) {
             log.warn(`[chronicle-plugin] ⚠️ 未配置视觉模型 API Key (ai.vision.apiKey)，跳过自动打标: ${safeFileName}`)
+          } else if (!vision) {
+            log.debug?.(`[chronicle-plugin] [群 ${groupId || '私聊'}] 配置为关闭视觉打标，跳过: ${safeFileName}`)
           } else if (fs.existsSync(targetSavePath)) {
             // 4. 调用视觉大模型进行分析与打标
             const buffer = fs.readFileSync(targetSavePath)

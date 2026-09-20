@@ -111,4 +111,34 @@ storage:
   # 单个多媒体文件最大下载大小限制（单位: MB，默认 50MB，超过则跳过本地下载）
   maxFileSizeMB: 50
 
+# 分群控制与个性化存储策略
+groups:
+  # 分群运行模式:
+  # - 'all': 默认在所有群启用（除 blacklist 黑名单群外）
+  # - 'whitelist': 仅在 whitelist 白名单群中启用
+  # - 'blacklist': 仅在 blacklist 黑名单群中禁用，其他群启用
+  mode: "all"
+
+  # 白名单群号列表 (仅在 mode: 'whitelist' 时生效，例如: [1049412291, 123456789])
+  whitelist: []
+
+  # 黑名单群号列表 (例如: [987654321])
+  blacklist: []
+
+  # 是否索引私聊消息 (默认 false，不记录私聊消息)
+  indexPrivate: false
+
+  # 特定群聊个性化覆盖规则（以群号为 key）
+  # 可为特定群独立设置是否启用、是否存图、是否存视频、是否存文件、是否调用视觉AI等
+  rules:
+    # 示例群配置（使用时请替换为真实群号）
+    # 1049412291:
+    #   enabled: true       # 该群是否启用插件 (可单独开启或关闭)
+    #   saveImage: true     # 该群是否保存图片到本地
+    #   saveVideo: false    # 该群是否保存视频到本地
+    #   saveFile: false     # 该群是否保存群文件到本地
+    #   vision: true        # 该群图片是否调用 Vision AI 打标 (关闭可节省 Token)
+    #   maxFileSizeMB: 20   # 该群单文件最大下载大小 (MB)
+
+
 

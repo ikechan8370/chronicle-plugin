@@ -139,6 +139,26 @@ storage:
   saveFile: false
   # 单个多媒体文件最大下载大小限制（单位: MB，默认 50MB，超过则跳过本地下载）
   maxFileSizeMB: 50
+
+# 分群控制与个性化存储策略
+groups:
+  # 分群运行模式: 'all' (全部群启用) / 'whitelist' (仅白名单群) / 'blacklist' (黑名单群禁用)
+  mode: "all"
+  # 白名单群号列表 (仅在 mode: 'whitelist' 时生效)
+  whitelist: []
+  # 黑名单群号列表
+  blacklist: []
+  # 是否索引私聊消息 (默认 false)
+  indexPrivate: false
+  # 特定群聊个性化覆盖规则（以群号为 key，覆盖全局默认设置）
+  rules:
+    1049412291:
+      enabled: true       # 该群是否启用插件
+      saveImage: true     # 该群是否保存图片
+      saveVideo: false    # 该群是否保存视频
+      saveFile: false     # 该群是否保存群文件 (防爆盘设置)
+      vision: true        # 该群图片是否调用视觉AI打标 (关闭可省Token)
+      maxFileSizeMB: 20   # 该群单文件下载大小上限 (MB)
 ```
 
 ---

@@ -121,6 +121,21 @@ export class Search extends plugin {
         }
       ]
     })
+
+    // 动态包装所有指令执行函数，统一检查分群启用状态
+    for (const r of this.rule || []) {
+      const fncName = r.fnc
+      const origFnc = this[fncName]
+      if (typeof origFnc === 'function' && !origFnc._wrapped) {
+        this[fncName] = async function (e) {
+          if (e.isGroup && !Config.isGroupEnabled(e.group_id)) {
+            return false
+          }
+          return origFnc.call(this, e)
+        }
+        this[fncName]._wrapped = true
+      }
+    }
   }
 
   async getBqb (e) {

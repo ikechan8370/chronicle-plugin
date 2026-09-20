@@ -296,6 +296,50 @@ export function supportGuoba () {
             max: 2048,
             placeholder: 50
           }
+        },
+
+        {
+          component: 'Divider',
+          label: '分群控制与黑白名单配置'
+        },
+        {
+          field: 'groups.mode',
+          label: '分群过滤模式',
+          bottomHelpMessage: 'all: 所有群启用（排除黑名单）；whitelist: 仅白名单群启用；blacklist: 黑名单群禁用',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '全部群启用 (all)', value: 'all' },
+              { label: '仅白名单群启用 (whitelist)', value: 'whitelist' },
+              { label: '黑名单群禁用 (blacklist)', value: 'blacklist' }
+            ]
+          }
+        },
+        {
+          field: 'groups.whitelist',
+          label: '白名单群号列表',
+          bottomHelpMessage: '仅在 whitelist 模式下生效，每行一个或回车添加',
+          component: 'Select',
+          componentProps: {
+            mode: 'tags',
+            placeholder: '输入群号后回车添加'
+          }
+        },
+        {
+          field: 'groups.blacklist',
+          label: '黑名单群号列表',
+          bottomHelpMessage: '黑名单中的群将完全不进行消息索引与响应',
+          component: 'Select',
+          componentProps: {
+            mode: 'tags',
+            placeholder: '输入群号后回车添加'
+          }
+        },
+        {
+          field: 'groups.indexPrivate',
+          label: '索引私聊消息',
+          bottomHelpMessage: '是否索引和存储私聊消息。默认关闭，仅索引群聊',
+          component: 'Switch'
         }
       ],
       getConfigData () {
