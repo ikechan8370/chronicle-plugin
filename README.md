@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./resources/logo.png" width="140" height="140" alt="Chronicle Plugin Logo" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);">
+  <img src="./resources/logo.png" width="100%" alt="Chronicle Plugin" style="border-radius: 14px; margin-bottom: 20px;">
   <h1>群聊编年史 (chronicle-plugin)</h1>
   <p>基于 <b>Meilisearch</b> 搜索引擎构建的 Yunzai-Bot / Miao-Yunzai / TRSS-Yunzai 全功能消息编年史与多模态检索分析插件</p>
   <p>
