@@ -46,7 +46,7 @@ async function handleMessage (e) {
 
     const log = global.logger || console
     const cfg = Config.getConfig()
-    const receivedDir = cfg.storage?.receivedDir || './data/chatgpt/data/received'
+    const receivedDir = cfg.storage?.receivedDir || './data/chronicle/received'
     const fullReceivedDir = path.resolve(process.cwd(), receivedDir)
     mkdirs(fullReceivedDir)
 

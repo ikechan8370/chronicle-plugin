@@ -48,7 +48,7 @@ export async function downloadFile (url, destPath, absolute = false, ignoreCerti
     let dest = destPath
     if (!absolute) {
       const cfg = Config.getConfig().storage || {}
-      const receivedDir = cfg.receivedDir || './data/chatgpt/data/received'
+      const receivedDir = cfg.receivedDir || './data/chronicle/received'
       dest = path.resolve(process.cwd(), receivedDir, destPath)
     }
 

@@ -2,16 +2,22 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <title>{{title}}</title>
   <style>
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    body {
-      margin: 0;
-      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-      background: #f6f1e8;
-      color: #1f2a30;
+    html, body {
+      width: {{width}}px;
+      height: {{height}}px;
+      overflow: hidden;
+      background: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
     }
 
     #container {
@@ -19,127 +25,466 @@
       height: {{height}}px;
       position: relative;
       overflow: hidden;
-      padding: 96px 30px 54px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.68)),
-        repeating-linear-gradient(0deg, rgba(31, 42, 48, 0.045) 0, rgba(31, 42, 48, 0.045) 1px, transparent 1px, transparent 32px);
-      border: 1px solid rgba(31, 42, 48, 0.12);
+      background-color: #f8fafc;
+      background-image:
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 48%),
+        radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.07) 0px, transparent 48%),
+        radial-gradient(at 50% 100%, rgba(14, 165, 233, 0.06) 0px, transparent 50%),
+        radial-gradient(#cbd5e1 1.1px, transparent 1.1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px;
+      padding: 24px 30px;
+      display: flex;
+      flex-direction: column;
     }
 
+    /* 顶部 Header */
     .header {
-      position: absolute;
-      left: 28px;
-      top: 22px;
-      right: 28px;
-      z-index: 2;
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
-      gap: 24px;
-      border-bottom: 1px solid rgba(31, 42, 48, 0.14);
-      padding-bottom: 12px;
+      margin-bottom: 16px;
+      height: 60px;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 620px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-icon {
+      font-size: 24px;
+      line-height: 1;
     }
 
     .title {
-      font-size: 30px;
+      font-size: 26px;
       font-weight: 800;
-      letter-spacing: 0;
+      color: #0f172a;
+      letter-spacing: -0.5px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
+    .title-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: #e0e7ff;
+      color: #4338ca;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
     .subtitle {
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 右上角数据卡片 */
+    .stats-bar {
+      display: flex;
+      gap: 10px;
+    }
+
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.04);
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .stat-val {
       font-size: 15px;
-      color: #536169;
-      white-space: nowrap;
-    }
-
-    .word {
-      display: inline-block;
       font-weight: 800;
-      line-height: 1;
-      white-space: nowrap;
-      text-shadow: 0 2px 8px rgba(255, 255, 255, 0.86);
-      margin: 5px 8px;
-      vertical-align: baseline;
+      color: #0f172a;
     }
 
-    .cloud {
-      height: calc({{height}}px - 150px);
+    /* 主体布局：双栏 (词云画布 + 热词榜单) */
+    .main-body {
+      display: flex;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* 左侧词云卡片 */
+    .canvas-card {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #word-cloud-canvas {
       width: 100%;
-      text-align: justify;
-      text-align-last: justify;
-      line-height: 1.18;
+      height: 100%;
+      display: block;
+    }
+
+    /* 右侧排行榜卡片 */
+    .rank-card {
+      width: 250px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(12px);
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .rank-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .rank-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rank-badge-hot {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ef4444;
+      background: #fee2e2;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: 1;
       overflow: hidden;
     }
 
-    .cloud::after {
-      content: "";
-      display: inline-block;
-      width: 100%;
+    .rank-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
 
-    .footer {
-      position: absolute;
-      right: 22px;
-      bottom: 16px;
+    .rank-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       font-size: 13px;
-      color: #6b7479;
+    }
+
+    .rank-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .rank-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+    .rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
+    .rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+    .rank-other { background: #f1f5f9; color: #64748b; }
+
+    .rank-word {
+      font-weight: 700;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 125px;
+    }
+
+    .rank-count {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+
+    .rank-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: #f1f5f9;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .rank-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* 底部 Footer */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-brand-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4f46e5;
     }
   </style>
 </head>
 <body>
   <div id="container">
+    <!-- 顶部状态栏 -->
     <div class="header">
-      <div class="title">{{title}}</div>
-      <div class="subtitle">{{subtitle}}</div>
+      <div class="header-left">
+        <div class="title-row">
+          <span class="title-icon">📊</span>
+          <div class="title">{{title}}</div>
+          <div class="title-badge">Chronicle Insight</div>
+        </div>
+        <div class="subtitle">{{subtitle}}</div>
+      </div>
+      <div class="stats-bar">
+        <div class="stat-pill">
+          <span class="stat-label">扫描消息</span>
+          <span class="stat-val">{{messageCount || 0}}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">提取词条</span>
+          <span class="stat-val">{{wordCount || 0}}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">峰值频次</span>
+          <span class="stat-val">{{maxCount || 0}}次</span>
+        </div>
+      </div>
     </div>
-    <div class="cloud">
-      {{each words word}}
-        <span class="word" data-size="{{word.size}}" style="font-size: {{word.size}}px; color: {{word.color}};" title="{{word.count}}次">{{word.text}}</span>
-      {{/each}}
+
+    <!-- 主体双栏 -->
+    <div class="main-body">
+      <!-- 词云主画卷 -->
+      <div class="canvas-card">
+        <canvas id="word-cloud-canvas"></canvas>
+      </div>
+
+      <!-- 焦点热词 TOP 10 榜单 -->
+      <div class="rank-card">
+        <div class="rank-header">
+          <div class="rank-title">
+            <span>🔥</span>
+            <span>焦点热词 TOP 10</span>
+          </div>
+          <div class="rank-badge-hot">高频</div>
+        </div>
+        <div class="rank-list">
+          {{each topWords item}}
+          <div class="rank-item">
+            <div class="rank-row">
+              <div class="rank-left">
+                <span class="rank-num {{item.rank === 1 ? 'rank-1' : item.rank === 2 ? 'rank-2' : item.rank === 3 ? 'rank-3' : 'rank-other'}}">{{item.rank}}</span>
+                <span class="rank-word" title="{{item.text}}">{{item.text}}</span>
+              </div>
+              <span class="rank-count">{{item.count}}次</span>
+            </div>
+            <div class="rank-bar-bg">
+              <div class="rank-bar-fill" style="width: {{item.percent}}%; background: {{item.color}};"></div>
+            </div>
+          </div>
+          {{/each}}
+        </div>
+      </div>
     </div>
-    <div class="footer">Created by Meilisearch message stats</div>
+
+    <!-- 底部信息 -->
+    <div class="footer">
+      <div class="footer-brand">
+        <div class="footer-brand-dot"></div>
+        <span>Chronicle Plugin · 群聊编年史</span>
+      </div>
+      <div>数据生成于 {{generatedTime}}</div>
+    </div>
   </div>
+
+  <!-- 嵌入原始词频数据 -->
+  <script id="raw-word-data" type="application/json">
+    {{@ wordsJson }}
+  </script>
+
+  <!-- 词云阿基米德螺旋有机排版算法 -->
   <script>
     (() => {
-      const cloud = document.querySelector('.cloud')
-      const words = Array.from(document.querySelectorAll('.word'))
-      const targetHeight = cloud.clientHeight
+      const canvas = document.getElementById('word-cloud-canvas')
+      if (!canvas) return
 
-      function applyScale (scale) {
-        const vMargin = Math.max(3, Math.min(8, 5 * scale))
-        const hMargin = Math.max(6, Math.min(14, 8 * scale))
-        for (const word of words) {
-          const base = Number(word.dataset.size)
-          word.style.fontSize = `${Math.max(10, Math.round(base * scale))}px`
-          word.style.margin = `${vMargin}px ${hMargin}px`
+      let rawData = []
+      try {
+        const textContent = document.getElementById('raw-word-data').textContent.trim()
+        rawData = JSON.parse(textContent)
+      } catch (err) {
+        console.error('解析词云数据失败:', err)
+      }
+
+      if (!rawData || rawData.length === 0) {
+        document.body.dataset.ready = 'true'
+        return
+      }
+
+      const rect = canvas.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 2
+      canvas.width = rect.width * dpr
+      canvas.height = rect.height * dpr
+
+      const ctx = canvas.getContext('2d')
+      ctx.scale(dpr, dpr)
+
+      const W = rect.width
+      const H = rect.height
+      const centerX = W / 2
+      const centerY = H / 2
+
+      // 碰撞检测盒集合
+      const placedBoxes = []
+
+      function checkCollision (box) {
+        // 画布边界检测
+        if (box.x < 10 || box.y < 10 || box.x + box.w > W - 10 || box.y + box.h > H - 10) {
+          return true
+        }
+        for (const p of placedBoxes) {
+          if (
+            box.x < p.x + p.w &&
+            box.x + box.w > p.x &&
+            box.y < p.y + p.h &&
+            box.y + box.h > p.y
+          ) {
+            return true
+          }
+        }
+        return false
+      }
+
+      const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif'
+
+      // 依次使用阿基米德螺旋线寻找最佳无碰撞落点
+      for (const item of rawData) {
+        let fontSize = item.size || 18
+        let placed = false
+
+        // 尝试当前大小，若实在放不下则轻微缩小重试
+        for (let attempt = 0; attempt < 3 && !placed; attempt++) {
+          ctx.font = `800 ${fontSize}px ${FONT_FAMILY}`
+          const metrics = ctx.measureText(item.text)
+          const textWidth = metrics.width
+          const textHeight = fontSize * 1.05
+
+          // 阿基米德螺旋线参数
+          const spiralStep = 3.5
+          const angleStep = 0.28
+          const maxRadius = Math.max(W, H) / 1.5
+          const aspect = W / H
+
+          for (let theta = 0; theta * spiralStep < maxRadius; theta += angleStep) {
+            const r = spiralStep * theta
+            // 椭圆螺旋适应长宽比
+            const x = centerX + r * Math.cos(theta) * (aspect * 0.7) - textWidth / 2
+            const y = centerY + r * Math.sin(theta) - textHeight / 2
+
+            const box = {
+              x: x - 4,
+              y: y - 2,
+              w: textWidth + 8,
+              h: textHeight + 4
+            }
+
+            if (!checkCollision(box)) {
+              placedBoxes.push(box)
+              // 绘制文字
+              ctx.save()
+              ctx.font = `800 ${fontSize}px ${FONT_FAMILY}`
+              ctx.fillStyle = item.color || '#3b82f6'
+              ctx.textBaseline = 'top'
+              // 微妙轻柔投影提升辨识度
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.04)'
+              ctx.shadowBlur = 4
+              ctx.shadowOffsetY = 1
+              ctx.fillText(item.text, x, y)
+              ctx.restore()
+              placed = true
+              break
+            }
+          }
+
+          fontSize = Math.round(fontSize * 0.82)
+          if (fontSize < 12) break
         }
       }
 
-      let low = 0.55
-      let high = 1
-      applyScale(high)
-      while (cloud.scrollHeight < targetHeight * 0.94 && high < 3.5) {
-        low = high
-        high *= 1.18
-        applyScale(high)
-      }
-
-      for (let i = 0; i < 28; i++) {
-        const mid = (low + high) / 2
-        applyScale(mid)
-        if (cloud.scrollHeight > targetHeight) {
-          high = mid
-        } else {
-          low = mid
-        }
-      }
-      applyScale(low * 0.985)
       document.body.dataset.ready = 'true'
     })()
   </script>
 </body>
 </html>
-

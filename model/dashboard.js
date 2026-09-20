@@ -123,7 +123,7 @@ class DashboardServer {
 
       const filename = path.basename(pathname.replace('/api/media/', ''))
       const storageCfg = Config.getConfig().storage || {}
-      const receivedDir = storageCfg.receivedDir || './data/chatgpt/data/received'
+      const receivedDir = storageCfg.receivedDir || './data/chronicle/received'
       const filePath = path.resolve(process.cwd(), receivedDir, filename)
 
       if (fs.existsSync(filePath)) {
@@ -188,7 +188,7 @@ class DashboardServer {
             port: cfg.meilisearch?.port,
             embedded: cfg.meilisearch?.embedded,
             indexName: MeiliClient.getIndexName(),
-            receivedDir: cfg.storage?.receivedDir
+            receivedDir: cfg.storage?.receivedDir || './data/chronicle/received'
           }
         }))
         return

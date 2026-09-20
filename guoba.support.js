@@ -233,10 +233,10 @@ export function supportGuoba () {
         {
           field: 'storage.receivedDir',
           label: '多媒体缓存相对路径',
-          bottomHelpMessage: '相对于云崽根目录的图片与文件存储路径',
+          bottomHelpMessage: '相对于云崽根目录的图片与文件存储路径，默认 ./data/chronicle/received',
           component: 'Input',
           componentProps: {
-            placeholder: './data/chatgpt/data/received'
+            placeholder: './data/chronicle/received'
           }
         }
       ],

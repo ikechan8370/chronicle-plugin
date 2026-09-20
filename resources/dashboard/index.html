@@ -647,7 +647,7 @@
         document.getElementById('sys-host').innerText = `${statusData.config?.host}:${statusData.config?.port}`
         document.getElementById('sys-mode').innerText = statusData.config?.embedded ? '内置二进制守护进程' : '外部独立部署'
         document.getElementById('sys-index').innerText = statusData.config?.indexName || 'messages'
-        document.getElementById('sys-storage').innerText = statusData.config?.receivedDir || './data/chatgpt/data/received'
+        document.getElementById('sys-storage').innerText = statusData.config?.receivedDir || './data/chronicle/received'
 
         // 渲染热门 Tags
         const tagsContainer = document.getElementById('top-tags-container')

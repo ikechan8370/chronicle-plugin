@@ -155,7 +155,7 @@ export class Search extends plugin {
     }
 
     const cfg = Config.getConfig().storage || {}
-    const receivedDir = cfg.receivedDir || './data/chatgpt/data/received'
+    const receivedDir = cfg.receivedDir || './data/chronicle/received'
 
     for (let img of images) {
       try {
@@ -318,7 +318,7 @@ export class Search extends plugin {
     }
 
     const cfg = Config.getConfig().storage || {}
-    const receivedDir = cfg.receivedDir || './data/chatgpt/data/received'
+    const receivedDir = cfg.receivedDir || './data/chronicle/received'
 
     let aggr = await MeiliClient.facetAggr('message.file', bqbFilter, Math.max(BQB_PAGE_SIZE * page, BQB_PAGE_SIZE))
     const total = aggr.facetHits.length
@@ -405,7 +405,7 @@ export class Search extends plugin {
     })
 
     const cfg = Config.getConfig().storage || {}
-    const receivedDir = cfg.receivedDir || './data/chatgpt/data/received'
+    const receivedDir = cfg.receivedDir || './data/chronicle/received'
 
     const elems = []
     try {
@@ -624,12 +624,16 @@ export class Search extends plugin {
       ? `候选发言 ${randomCount} 条 / ${isToday ? '今日' : '历史全部扫描'} ${texts.length} 条 / ${words.length} 个词条`
       : `${isToday ? '今日' : '历史全部扫描'} ${texts.length} 条文本消息 / ${words.length} 个词条`
 
+    const prepared = prepareWordCloud(words.slice(0, wordLimit), { isToday })
+
     const image = await renderWordCloud(e, {
       title,
       subtitle,
-      words: prepareWordCloud(words.slice(0, wordLimit), isToday),
-      width: 900,
-      height: isToday ? 620 : 720
+      ...prepared,
+      messageCount: texts.length,
+      generatedTime: formatDate(new Date()),
+      width: 1060,
+      height: isToday ? 680 : 740
     })
 
     if (image) {
@@ -1103,7 +1107,7 @@ function formatDate (date) {
 async function handleHits (results) {
   let messages = []
   const cfg = Config.getConfig().storage || {}
-  const receivedDir = cfg.receivedDir || './data/chatgpt/data/received'
+  const receivedDir = cfg.receivedDir || './data/chronicle/received'
 
   for (let msg of results.hits || []) {
     let elm = []

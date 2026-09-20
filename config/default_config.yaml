@@ -87,4 +87,5 @@ dashboard:
 # 存储路径
 storage:
   # 接收并缓存的多媒体（图片/文件）存放路径（相对于云崽根目录）
-  receivedDir: "./data/chatgpt/data/received"
+  receivedDir: "./data/chronicle/received"
+

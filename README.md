@@ -118,7 +118,7 @@ wordcloud:
 
 # 文件存储路径
 storage:
-  receivedDir: "./data/chatgpt/data/received"
+  receivedDir: "./data/chronicle/received"
 ```
 
 ---
