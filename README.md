@@ -1,6 +1,14 @@
-# 群聊编年史 (chronicle-plugin)
-
-基于 [Meilisearch](https://www.meilisearch.com/) 搜索引擎构建的 Miao-Yunzai / Yunzai-Bot 标准插件，提供群聊消息实时入库、视觉模型自动打标、多媒体去重、全文检索、艾特社交网络拓扑可视化、词云生成与 AI 用户画像等功能。
+<div align="center">
+  <img src="./resources/logo.png" width="140" height="140" alt="Chronicle Plugin Logo" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);">
+  <h1>群聊编年史 (chronicle-plugin)</h1>
+  <p>基于 <b>Meilisearch</b> 搜索引擎构建的 Yunzai-Bot / Miao-Yunzai / TRSS-Yunzai 全功能消息编年史与多模态检索分析插件</p>
+  <p>
+    <a href="https://github.com/ikechan8370/chronicle-plugin"><img src="https://img.shields.io/badge/Release-v1.0.0-blue.svg?style=flat-square" alt="Release"></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933.svg?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
+    <a href="https://www.meilisearch.com/"><img src="https://img.shields.io/badge/Meilisearch-v1.12+-FF4F64.svg?style=flat-square&logo=meilisearch&logoColor=white" alt="Meilisearch"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License"></a>
+  </p>
+</div>
 
 ---
 

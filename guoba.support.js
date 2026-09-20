@@ -1,4 +1,8 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Config from './model/config.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function supportGuoba () {
   return {
@@ -12,8 +16,7 @@ export function supportGuoba () {
       isV2: false,
       showInMenu: true,
       description: '云崽群聊编年史与多模态检索插件：支持全量消息索引、Vision AI 图片自动打标、全文/表情包检索、社交图谱、词云分析与群友画像，兼容 TRSS / Miao-Yunzai 多适配器',
-      icon: 'carbon:catalog',
-      iconColor: '#2563eb'
+      iconPath: path.join(__dirname, 'resources/logo.png')
     },
     configInfo: {
       schemas: [
