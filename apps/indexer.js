@@ -173,10 +173,12 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
           }
         }
 
-        // 生成干净安全的文件名，防止 URL 字符污染文件系统路径
-        let safeFileName = item.md5 ? `${item.md5}.jpg` : ''
-        if (!safeFileName && typeof item.file === 'string' && !item.file.includes('/') && !item.file.includes('\\') && !item.file.startsWith('base64:')) {
+        // 优先使用原有合法文件名（保留 md5_sha1... 历史规范，兼容历史已存文件）
+        let safeFileName = ''
+        if (typeof item.file === 'string' && !item.file.includes('/') && !item.file.includes('\\') && !item.file.startsWith('base64:')) {
           safeFileName = item.file.endsWith('.jpg') || item.file.endsWith('.png') || item.file.endsWith('.gif') || item.file.endsWith('.webp') ? item.file : `${item.file}.jpg`
+        } else if (item.md5) {
+          safeFileName = `${item.md5}.jpg`
         }
         if (!safeFileName) {
           const hashSeed = imageUrl || base64Content || localPath || Math.random().toString()
@@ -186,21 +188,66 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
         const targetSavePath = path.join(fullReceivedDir, safeFileName)
         log.info(`[chronicle-plugin] 📷 收到来自 [${groupName || '私聊'}] ${senderNick}(${userId}) 的图片: ${safeFileName}`)
 
-        // 将图片保存到本地缓存
+        // 检查本地文件有效性（必须存在且字节数 > 0）
+        let isFileValid = false
         if (fs.existsSync(targetSavePath)) {
-          log.info(`[chronicle-plugin] 图片本地缓存已存在: ${safeFileName}`)
-        } else if (isBase64 && base64Content) {
-          fs.writeFileSync(targetSavePath, Buffer.from(base64Content, 'base64'))
-          log.info(`[chronicle-plugin] 图片从 Base64 写入缓存: ${safeFileName}`)
-        } else if (isLocal && localPath && fs.existsSync(localPath)) {
-          if (path.resolve(localPath) !== path.resolve(targetSavePath)) {
-            fs.copyFileSync(localPath, targetSavePath)
+          const stat = fs.statSync(targetSavePath)
+          if (stat.size > 0) {
+            isFileValid = true
+            log.info(`[chronicle-plugin] 图片本地缓存已存在: ${safeFileName} (${stat.size} 字节)`)
+          } else {
+            // 0 字节损坏文件，立即清理以便重新下载
+            log.warn(`[chronicle-plugin] 检测到本地损坏的 0 字节图片缓存，清理并准备重新下载: ${safeFileName}`)
+            try { fs.unlinkSync(targetSavePath) } catch {}
           }
-          log.info(`[chronicle-plugin] 图片从本地路径复制到缓存: ${safeFileName}`)
-        } else if (imageUrl) {
-          log.info(`[chronicle-plugin] 正在后台下载远程图片: ${safeFileName}`)
-          await downloadFile(imageUrl, safeFileName, false, true, null, 10000)
-          log.info(`[chronicle-plugin] ⬇️ 图片下载成功: ${safeFileName}`)
+        }
+
+        // 若本地未找到 safeFileName，但有 md5，尝试在缓存目录中查找相同 md5 的历史图片
+        if (!isFileValid && item.md5) {
+          try {
+            const files = fs.readdirSync(fullReceivedDir)
+            const matchedFile = files.find(f => f.startsWith(item.md5) && !f.endsWith('.tmp') && !f.includes('.tmp.'))
+            if (matchedFile) {
+              const matchedPath = path.join(fullReceivedDir, matchedFile)
+              const stat = fs.statSync(matchedPath)
+              if (stat.size > 0) {
+                if (matchedFile !== safeFileName) {
+                  try {
+                    fs.copyFileSync(matchedPath, targetSavePath)
+                  } catch {}
+                }
+                isFileValid = true
+                log.info(`[chronicle-plugin] 命中同 MD5 历史图片缓存并复用: ${matchedFile} -> ${safeFileName}`)
+              }
+            }
+          } catch {}
+        }
+
+        // 将图片保存到本地缓存（若不存在或之前丢失，只要再次收到消息就强制下载补齐）
+        if (!isFileValid) {
+          if (isBase64 && base64Content) {
+            fs.writeFileSync(targetSavePath, Buffer.from(base64Content, 'base64'))
+            isFileValid = true
+            log.info(`[chronicle-plugin] 图片从 Base64 写入缓存: ${safeFileName}`)
+          } else if (isLocal && localPath && fs.existsSync(localPath)) {
+            const stat = fs.statSync(localPath)
+            if (stat.size > 0) {
+              if (path.resolve(localPath) !== path.resolve(targetSavePath)) {
+                fs.copyFileSync(localPath, targetSavePath)
+              }
+              isFileValid = true
+              log.info(`[chronicle-plugin] 图片从本地路径复制到缓存: ${safeFileName}`)
+            }
+          } else if (imageUrl) {
+            log.info(`[chronicle-plugin] 正在后台下载远程图片: ${safeFileName}`)
+            try {
+              await downloadFile(imageUrl, safeFileName, false, true, null, 15000, 3)
+              isFileValid = true
+              log.info(`[chronicle-plugin] ⬇️ 图片下载成功: ${safeFileName}`)
+            } catch (dlErr) {
+              log.error(`[chronicle-plugin] ❌ 图片下载失败 [${safeFileName}]:`, dlErr.message)
+            }
+          }
         }
 
         if (item.file !== safeFileName) {
@@ -236,14 +283,14 @@ async function processMediaAsync (e, messageData, formattedMessage, fullReceived
           item.description = existSameImage.description
           item.tags = existSameImage.tags || existSameImage.tag || []
           hasImageUpdates = true
-        } else {
+        } else if (isFileValid && fs.existsSync(targetSavePath)) {
           // 3. 检查是否配置了 Vision AI 的 API Key 以及当前群是否启用了视觉打标
           const visionApiKey = Config.get('ai.vision.apiKey', '')
           if (!visionApiKey) {
             log.warn(`[chronicle-plugin] ⚠️ 未配置视觉模型 API Key (ai.vision.apiKey)，跳过自动打标: ${safeFileName}`)
           } else if (!vision) {
             log.debug?.(`[chronicle-plugin] [群 ${groupId || '私聊'}] 配置为关闭视觉打标，跳过: ${safeFileName}`)
-          } else if (fs.existsSync(targetSavePath)) {
+          } else {
             // 4. 调用视觉大模型进行分析与打标
             const buffer = fs.readFileSync(targetSavePath)
             const type = await fileTypeFromBuffer(buffer)

@@ -15,6 +15,7 @@ import {
   buildAtGraphRenderData,
   buildPersonalAtGraphRenderData
 } from '../model/atgraph.js'
+import { downloadFile } from '../model/downloader.js'
 
 const DEFAULT_PAGE_SIZE = 50
 const IMAGE_PAGE_SIZE = 30
@@ -28,6 +29,11 @@ export class Search extends plugin {
       event: 'message',
       priority: 5000,
       rule: [
+        {
+          reg: '^#(.*)(的)?(经典语录|语录).*$',
+          fnc: 'classicQuote',
+          priority: '-1000000'
+        },
         {
           reg: '^#(全部)?搜索(图片|表情包)',
           fnc: 'getBqb',
@@ -295,8 +301,9 @@ export class Search extends plugin {
 
     let aggr = await MeiliClient.facetAggr('message.tags', filter, Math.max(DEFAULT_PAGE_SIZE * page, DEFAULT_PAGE_SIZE))
     const total = aggr.facetHits.length
-    let values = aggr.facetHits.slice((page - 1) * DEFAULT_PAGE_SIZE, page * DEFAULT_PAGE_SIZE).map(hit => {
-      return `${hit.value} (${hit.count}次)`
+    let values = aggr.facetHits.slice((page - 1) * DEFAULT_PAGE_SIZE, page * DEFAULT_PAGE_SIZE).map((hit, index) => {
+      const rank = (page - 1) * DEFAULT_PAGE_SIZE + index + 1
+      return `${rank}. ${hit.value} (${hit.count}次)`
     })
 
     let str = `${formatPageInfo(page, DEFAULT_PAGE_SIZE, total)}\n\n${values.join('\n')}`
@@ -314,9 +321,10 @@ export class Search extends plugin {
 
     let aggr = await MeiliClient.facetAggr('sender.user_id', filter, Math.max(DEFAULT_PAGE_SIZE * page, DEFAULT_PAGE_SIZE))
     const total = aggr.facetHits.length
-    let values = await Promise.all(aggr.facetHits.slice((page - 1) * DEFAULT_PAGE_SIZE, page * DEFAULT_PAGE_SIZE).map(async hit => {
+    let values = await Promise.all(aggr.facetHits.slice((page - 1) * DEFAULT_PAGE_SIZE, page * DEFAULT_PAGE_SIZE).map(async (hit, index) => {
+      const rank = (page - 1) * DEFAULT_PAGE_SIZE + index + 1
       const name = await MeiliClient.getDisplayName(e, hit.value, all)
-      return `${name} (${hit.value})：${hit.count}次`
+      return `${rank}. ${name} (${hit.value})：${hit.count}次`
     }))
 
     let str = `${formatPageInfo(page, DEFAULT_PAGE_SIZE, total)}\n\n${values.join('\n')}`
@@ -337,10 +345,24 @@ export class Search extends plugin {
 
     let aggr = await MeiliClient.facetAggr('message.file', bqbFilter, Math.max(BQB_PAGE_SIZE * page, BQB_PAGE_SIZE))
     const total = aggr.facetHits.length
-    let values = await Promise.all(aggr.facetHits.slice((page - 1) * BQB_PAGE_SIZE, page * BQB_PAGE_SIZE).map(async hit => {
+    let values = await Promise.all(aggr.facetHits.slice((page - 1) * BQB_PAGE_SIZE, page * BQB_PAGE_SIZE).map(async (hit, index) => {
+      const rank = (page - 1) * BQB_PAGE_SIZE + index + 1
       let imgElem
       try {
         let absPath = path.resolve(process.cwd(), receivedDir, hit.value)
+        if (!fs.existsSync(absPath) || fs.statSync(absPath).size === 0) {
+          // 若本地文件缺失或为 0 字节，尝试从 Meilisearch 记录中查找该表情的原 URL 并补救下载
+          try {
+            const docRes = await MeiliClient.getIndex().search('', {
+              filter: `message.type = "image" AND message.file = "${escapeFilterString(hit.value)}"`,
+              limit: 1
+            })
+            const imgUrl = docRes.hits?.[0]?.message?.find(m => m.type === 'image' && m.file === hit.value)?.url
+            if (imgUrl) {
+              await downloadFile(imgUrl, hit.value, false, true, null, 10000, 2)
+            }
+          } catch {}
+        }
         let buffer = fs.readFileSync(absPath)
         imgElem = segment.image(buffer)
       } catch (err) {
@@ -356,7 +378,7 @@ export class Search extends plugin {
       let name = qq ? await MeiliClient.getDisplayName(e, qq, all) : ''
       return [
         imgElem,
-        qq ? `${hit.count}次 (最喜欢发这个表情包的人是${name} ${qq})` : `${hit.count}次`
+        qq ? `${rank}. 发送 ${hit.count}次 (最喜欢发这个表情包的人是${name} ${qq})` : `${rank}. 发送 ${hit.count}次`
       ]
     }))
 
@@ -424,9 +446,16 @@ export class Search extends plugin {
 
     const elems = []
     try {
-      const file = image.file || recent.hits[0]?.message?.find(item => item.type === 'image')?.file
+      const imgHit = recent.hits[0]?.message?.find(item => item.type === 'image')
+      const file = image.file || imgHit?.file
       if (file) {
-        elems.push(segment.image(fs.readFileSync(path.resolve(process.cwd(), receivedDir, file))))
+        let absPath = path.resolve(process.cwd(), receivedDir, file)
+        if ((!fs.existsSync(absPath) || fs.statSync(absPath).size === 0) && (image.url || imgHit?.url)) {
+          try {
+            await downloadFile(image.url || imgHit?.url, file, false, true, null, 10000, 2)
+          } catch {}
+        }
+        elems.push(segment.image(fs.readFileSync(absPath)))
       }
     } catch (err) {
       logger.warn?.(err)
@@ -1019,6 +1048,188 @@ export class Search extends plugin {
         e.reply('生成失败，请检查后台日志。')
       }
     }
+  }
+
+  /**
+   * 经典语录：随机选取群友或指定成员发过的一句纯文本（可含at）
+   */
+  async classicQuote (e) {
+    if (!e.isGroup) {
+      await e.reply('经典语录功能仅支持在群聊中使用哦~')
+      return
+    }
+
+    const groupId = String(e.group_id)
+    const botUin = String(e.bot?.uin || e.self_id || global.Bot?.uin || '')
+
+    // 1. 提取目标 QQ（支持 @某人 或 从文本中提取 #某人的经典语录）
+    let targetQq = null
+    if (Array.isArray(e.message)) {
+      const atItem = e.message.find(item => item.type === 'at' && String(item.qq) !== botUin && item.qq !== 'all')
+      if (atItem) {
+        targetQq = String(atItem.qq)
+      }
+    }
+    if (!targetQq && e.at && String(e.at) !== botUin) {
+      targetQq = String(e.at)
+    }
+
+    if (!targetQq) {
+      const match = String(e.msg || '').match(/^#(?:([^\s#]+?)(?:的)?)?(?:经典语录|语录)/)
+      if (match && match[1]) {
+        const queryName = match[1].trim()
+        if (/^\d{5,12}$/.test(queryName)) {
+          targetQq = queryName
+        } else {
+          try {
+            const members = e.group?.getMemberMap?.() || global.Bot?.gml?.get(e.group?.group_id)
+            if (members) {
+              for (const [uin, m] of members) {
+                const card = m?.card || ''
+                const nick = m?.nickname || ''
+                if (card === queryName || nick === queryName || card.includes(queryName) || nick.includes(queryName)) {
+                  targetQq = String(uin)
+                  break
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // 2. 构造 Meilisearch 查询条件
+    let filter = `group.group_id = ${groupId}`
+    if (targetQq) {
+      filter += ` AND sender.user_id = ${targetQq}`
+    }
+
+    const index = MeiliClient.getIndex()
+    let total = 0
+    try {
+      const countRes = await index.search('', {
+        filter,
+        limit: 1,
+        attributesToRetrieve: ['id']
+      })
+      total = countRes.totalHits || countRes.estimatedTotalHits || 0
+    } catch (err) {
+      logger.error?.('[chronicle-plugin] 经典语录检索失败:', err)
+      return e.reply('检索语录库失败，请稍后重试~')
+    }
+
+    if (total === 0) {
+      return e.reply(targetQq ? '未在群记录中找到该成员的发言记录~' : '本群暂无收录的发言记录~')
+    }
+
+    // 3. 候选校验函数：必须为纯文本（允许包含 at），排除表情包/图片/文件/指令/纯链接
+    const isCandidate = hit => {
+      if (!hit || !Array.isArray(hit.message) || hit.message.length === 0) return false
+      const allTextOrAt = hit.message.every(m => m.type === 'text' || m.type === 'at')
+      if (!allTextOrAt) return false
+
+      const text = hit.message
+        .filter(m => m.type === 'text')
+        .map(m => m.text || '')
+        .join('')
+        .trim()
+
+      if (text.length < 2) return false
+      if (/^[#/!！.。、~～]/.test(text)) return false
+      if (/^https?:\/\/\S+$/i.test(text)) return false
+      return true
+    }
+
+    let selectedHit = null
+    const maxOffset = Math.max(0, Math.min(total - 25, 20000))
+
+    // 随机 offset 抽样
+    for (let i = 0; i < 3; i++) {
+      const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
+      try {
+        const res = await index.search('', {
+          filter,
+          limit: 30,
+          offset: randomOffset
+        })
+        const candidates = (res.hits || []).filter(isCandidate)
+        if (candidates.length > 0) {
+          selectedHit = candidates[Math.floor(Math.random() * candidates.length)]
+          break
+        }
+      } catch (err) {
+        logger.warn?.('[chronicle-plugin] 语录抽样异常:', err)
+      }
+    }
+
+    // 若随机抽样未命中，按最新降序扫前 60 条做兜底保底
+    if (!selectedHit) {
+      try {
+        const fallbackRes = await index.search('', {
+          filter,
+          limit: 60,
+          sort: ['quotable.time:desc']
+        })
+        const candidates = (fallbackRes.hits || []).filter(isCandidate)
+        if (candidates.length > 0) {
+          selectedHit = candidates[Math.floor(Math.random() * candidates.length)]
+        }
+      } catch {}
+    }
+
+    if (!selectedHit) {
+      return e.reply(targetQq ? '未找到该成员符合条件的经典语录（纯文本）~' : '本群暂无符合条件的经典语录~')
+    }
+
+    // 4. 组装合并转发消息
+    const senderId = selectedHit.sender?.user_id || selectedHit.quotable?.user_id || '0'
+    let senderName = selectedHit.sender?.card || selectedHit.sender?.nickname
+    if (!senderName) {
+      senderName = getMemberName(e, senderId)
+    }
+    const quoteTime = selectedHit.quotable?.time || Math.floor(Date.now() / 1000)
+
+    // 第一条：原汁原味的语录内容（保留原发送人身份和历史发送时间）
+    const quoteMsgElements = selectedHit.message.map(item => {
+      if (item.type === 'text') return item.text
+      if (item.type === 'at') {
+        const atTarget = item.text || item.qq
+        return `@${atTarget} `
+      }
+      return ''
+    }).filter(Boolean)
+
+    const quoteNode = {
+      userInfo: {
+        user_id: Number(senderId) || senderId,
+        nickname: senderName
+      },
+      time: quoteTime,
+      msg: quoteMsgElements.length > 0 ? quoteMsgElements : ['[文本]']
+    }
+
+    // 第二条：以 Bot 身份发送的记录与核验信息
+    const botName = e.bot?.nickname || 'Chronicle Bot'
+    const formattedTime = formatDate(new Date(quoteTime * 1000))
+    const msgId = selectedHit.id || selectedHit.quotable?.seq || '未知'
+    const recordText = [
+      '📜 经典语录收录存根',
+      `👤 发送人：${senderName} (${senderId})`,
+      `🆔 消息ID：${msgId}`,
+      `⏰ 发送时间：${formattedTime}`
+    ].join('\n')
+
+    const botNode = {
+      userInfo: {
+        user_id: Number(botUin) || botUin,
+        nickname: botName
+      },
+      time: Math.floor(Date.now() / 1000),
+      msg: recordText
+    }
+
+    const forwardMsg = await makeForwardMsg(e, [quoteNode, botNode], `${senderName}的经典语录`)
+    await e.reply(forwardMsg)
   }
 }
 
