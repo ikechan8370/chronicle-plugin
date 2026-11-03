@@ -1122,7 +1122,7 @@ export class Search extends plugin {
       return e.reply(targetQq ? '未在群记录中找到该成员的发言记录~' : '本群暂无收录的发言记录~')
     }
 
-    // 3. 候选校验函数：必须为纯文本（允许包含 at），排除表情包/图片/文件/指令/纯链接
+    // 3. 候选校验函数：必须为纯文本（允许包含 at），排除表情包/图片/文件/指令/纯链接/超短复读
     const isCandidate = hit => {
       if (!hit || !Array.isArray(hit.message) || hit.message.length === 0) return false
       const allTextOrAt = hit.message.every(m => m.type === 'text' || m.type === 'at')
@@ -1134,54 +1134,113 @@ export class Search extends plugin {
         .join('')
         .trim()
 
-      if (text.length < 2) return false
+      // 过滤超短字词，要求至少 4 个字符，过滤掉“草”、“1”、“哈哈”、“好的”等废话
+      if (text.length < 4) return false
+      // 过滤指令、链接
       if (/^[#/!！.。、~～]/.test(text)) return false
       if (/^https?:\/\/\S+$/i.test(text)) return false
+      // 过滤纯数字或纯标点
+      if (/^[\d\s\p{P}]+$/u.test(text)) return false
       return true
     }
 
-    let selectedHit = null
-    const maxOffset = Math.max(0, Math.min(total - 25, 20000))
+    // 4. 从 Meilisearch 随机切片抽样最多 500 条原始消息
+    const sampleLimit = Math.min(500, total)
+    const maxOffset = Math.max(0, total - sampleLimit)
+    const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
 
-    // 随机 offset 抽样
-    for (let i = 0; i < 3; i++) {
-      const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
-      try {
-        const res = await index.search('', {
-          filter,
-          limit: 30,
-          offset: randomOffset
-        })
-        const candidates = (res.hits || []).filter(isCandidate)
-        if (candidates.length > 0) {
-          selectedHit = candidates[Math.floor(Math.random() * candidates.length)]
-          break
-        }
-      } catch (err) {
-        logger.warn?.('[chronicle-plugin] 语录抽样异常:', err)
-      }
+    let hits = []
+    try {
+      const sampleRes = await index.search('', {
+        filter,
+        limit: sampleLimit,
+        offset: randomOffset
+      })
+      hits = sampleRes.hits || []
+    } catch (err) {
+      logger.warn?.('[chronicle-plugin] 语录抽样异常:', err)
     }
 
-    // 若随机抽样未命中，按最新降序扫前 60 条做兜底保底
-    if (!selectedHit) {
+    // 若随机抽样命中的有效数量过少，尝试降级拉取最新消息
+    if (hits.length < 20) {
       try {
         const fallbackRes = await index.search('', {
           filter,
-          limit: 60,
+          limit: Math.min(300, total),
           sort: ['quotable.time:desc']
         })
-        const candidates = (fallbackRes.hits || []).filter(isCandidate)
-        if (candidates.length > 0) {
-          selectedHit = candidates[Math.floor(Math.random() * candidates.length)]
-        }
+        hits = fallbackRes.hits || hits
       } catch {}
     }
 
-    if (!selectedHit) {
-      return e.reply(targetQq ? '未找到该成员符合条件的经典语录（纯文本）~' : '本群暂无符合条件的经典语录~')
+    // 初步筛选合规纯文本候选集
+    const candidates = hits.filter(isCandidate)
+    if (candidates.length === 0) {
+      return e.reply(targetQq ? '未找到该成员符合条件的发言记录~' : '本群暂无符合条件的发言记录~')
     }
 
-    // 4. 组装合并转发消息
+    // 精选送入大模型的数据池（最多 200 条，兼顾多样性、上下文广度与秒级响应）
+    const aiPool = candidates.slice(0, 200)
+
+    let selectedHit = null
+    let selectedReason = ''
+
+    // 5. 借助大模型评选出最具梗点、爆点或生草特质的经典语录
+    try {
+      const candidateLines = aiPool.map((c, idx) => {
+        const text = c.message
+          .filter(m => m.type === 'text')
+          .map(m => m.text || '')
+          .join('')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const sender = c.sender?.card || c.sender?.nickname || c.sender?.user_id || '群友'
+        return `[${idx + 1}] ${sender}: ${text}`
+      }).join('\n')
+
+      const systemPrompt = `你是一个具有顶级幽默感、阅群无数的群聊经典语录鉴赏家。
+你的任务是从给定的群聊真实发言列表中，挑出一条最具有“经典语录/金句”特质的发言。
+
+评选标准：
+1. 最具幽默感、爆笑梗多、出人意料、富有反差感或神回复；
+2. 或者是语出惊人、荒谬离奇的暴论、哲学自嘲、生草发言；
+3. 坚决排除平淡无奇的日常客套、问候、流水账、游戏日常等普通无聊句子。
+
+你必须严格以合法 JSON 格式输出，不要有任何多余文字：
+{
+  "index": 选中的消息编号(必须是对应中括号里的纯数字),
+  "reason": "一句话毒舌、生草或精辟的入选理由（25字以内）"
+}`
+
+      const userPrompt = `以下是从本群聊天记录中抽取的真实发言列表，请从中评选出最具爆点的一条：\n\n${candidateLines}`
+
+      // 设定 8 秒超时，超时自动安全降级
+      const aiCallPromise = callChat(userPrompt, systemPrompt, 'repeat')
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI调用超时')), 8000))
+
+      const aiRsp = await Promise.race([aiCallPromise, timeoutPromise])
+      if (aiRsp) {
+        const cleaned = aiRsp.replace(/```json/gi, '').replace(/```/g, '').trim()
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0])
+          const chosenIdx = parseInt(parsed.index, 10) - 1
+          if (chosenIdx >= 0 && chosenIdx < aiPool.length) {
+            selectedHit = aiPool[chosenIdx]
+            selectedReason = parsed.reason || '经典传世名言'
+          }
+        }
+      }
+    } catch (aiErr) {
+      logger.warn?.('[chronicle-plugin] AI 评选经典语录未完成，降级为随机挑选:', aiErr.message || aiErr)
+    }
+
+    // 兜底保底（如果 AI 报错或返回格式异常，安全回退随机选一条）
+    if (!selectedHit) {
+      selectedHit = candidates[Math.floor(Math.random() * candidates.length)]
+    }
+
+    // 6. 组装合并转发消息
     const senderId = selectedHit.sender?.user_id || selectedHit.quotable?.user_id || '0'
     let senderName = selectedHit.sender?.card || selectedHit.sender?.nickname
     if (!senderName) {
@@ -1208,16 +1267,20 @@ export class Search extends plugin {
       msg: quoteMsgElements.length > 0 ? quoteMsgElements : ['[文本]']
     }
 
-    // 第二条：以 Bot 身份发送的记录与核验信息
+    // 第二条：以 Bot 身份发送的记录与核验信息（包含 AI 的精辟入选点评）
     const botName = e.bot?.nickname || 'Chronicle Bot'
     const formattedTime = formatDate(new Date(quoteTime * 1000))
     const msgId = selectedHit.id || selectedHit.quotable?.seq || '未知'
-    const recordText = [
+    const recordLines = [
       '📜 经典语录收录存根',
       `👤 发送人：${senderName} (${senderId})`,
       `🆔 消息ID：${msgId}`,
       `⏰ 发送时间：${formattedTime}`
-    ].join('\n')
+    ]
+    if (selectedReason) {
+      recordLines.push(`💡 入选理由：${selectedReason}`)
+    }
+    const recordText = recordLines.join('\n')
 
     const botNode = {
       userInfo: {
