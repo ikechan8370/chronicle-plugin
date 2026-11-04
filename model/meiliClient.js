@@ -47,18 +47,21 @@ class MeiliClientManager {
     const log = global.logger || console
 
     try {
+      let isNewIndex = false
       // 检查索引是否存在，不存在则创建
       try {
         await client.getIndex(indexName)
       } catch (e) {
         log.info(`[chronicle-plugin] 索引 ${indexName} 不存在，正在创建...`)
         await client.createIndex(indexName, { primaryKey: 'id' })
+        isNewIndex = true
       }
 
       const index = client.index(indexName)
+      const currentSettings = await index.getSettings().catch(() => ({}))
 
-      // 更新可过滤属性
-      await index.updateFilterableAttributes([
+      // 更新可过滤属性（仅当缺少必须字段时更新）
+      const requiredFilterable = [
         'message.type',
         'message.asface',
         'message.file',
@@ -68,28 +71,26 @@ class MeiliClientManager {
         'group.group_id',
         'sender.user_id',
         'quotable.time'
-      ])
+      ]
+      const currentFilterable = new Set(currentSettings.filterableAttributes || [])
+      if (requiredFilterable.some(attr => !currentFilterable.has(attr))) {
+        await index.updateFilterableAttributes(requiredFilterable)
+      }
 
       // 更新可排序属性
-      await index.updateSortableAttributes([
-        'quotable.time'
-      ])
-
-      // 更新可搜索属性
-      await index.updateSearchableAttributes([
-        'message.text',
-        'json.data',
-        'message.summary',
-        'message.description',
-        'message.tags'
-      ])
+      const currentSortable = new Set(currentSettings.sortableAttributes || [])
+      if (!currentSortable.has('quotable.time')) {
+        await index.updateSortableAttributes(['quotable.time'])
+      }
 
       // 更新分页上限
-      await index.updatePagination({
-        maxTotalHits: 500000
-      })
+      if ((currentSettings.pagination?.maxTotalHits || 0) < 500000) {
+        await index.updatePagination({
+          maxTotalHits: 500000
+        })
+      }
 
-      log.info(`[chronicle-plugin] 索引 ${indexName} 配置初始化完成`)
+      log.info(`[chronicle-plugin] 索引 ${indexName} 配置检查完成`)
       return true
     } catch (err) {
       log.error(`[chronicle-plugin] 初始化索引配置失败:`, err)
